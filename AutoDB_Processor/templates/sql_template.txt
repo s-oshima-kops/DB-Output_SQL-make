@@ -1,0 +1,62 @@
+-- ====================================================================
+-- 端末マスタ更新用SQLテンプレート
+-- VBAマクロでプレースホルダを置換して使用
+-- ====================================================================
+
+-- 端末マスタ新規登録用テンプレート
+INSERT INTO MST_Terminal (
+    terminal_id,
+    terminal_name,
+    app_code,
+    area,
+    team_name,
+    update_timestamp
+) VALUES (
+    '{terminal_id}',
+    '{terminal_name}',
+    '{app_code}',
+    '{area}',
+    '{team_name}',
+    SYSDATE
+);
+
+-- 端末マスタ更新用テンプレート
+UPDATE MST_Terminal
+SET 
+    terminal_name = '{terminal_name}',
+    app_code = '{app_code}',
+    area = '{area}',
+    team_name = '{team_name}',
+    update_timestamp = SYSDATE
+WHERE terminal_id = '{terminal_id}';
+
+-- 端末マスタ削除用テンプレート
+DELETE FROM MST_Terminal
+WHERE terminal_id = '{terminal_id}';
+
+-- 端末マスタ検索用テンプレート
+SELECT 
+    terminal_id,
+    terminal_name,
+    app_code,
+    area,
+    team_name,
+    update_timestamp
+FROM MST_Terminal
+WHERE 1=1
+{condition_terminal_id}
+{condition_app_code}
+{condition_area}
+{condition_team_name}
+ORDER BY terminal_id;
+
+-- ====================================================================
+-- プレースホルダ説明
+-- ====================================================================
+-- {terminal_id}      : 端末ID
+-- {terminal_name}    : 端末名
+-- {app_code}         : アプリケーションコード
+-- {area}             : 利用エリア
+-- {team_name}        : 利用チーム名
+-- {condition_xxx}    : WHERE条件（例: AND terminal_id = 'T001'）
+-- ==================================================================== 
