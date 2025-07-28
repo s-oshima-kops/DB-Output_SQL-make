@@ -1,59 +1,176 @@
 ' ====================================================================
-' 端末マスタ管理半自動化ツール VBAコード
+' 【端末マスタ管理半自動化ツール VBAコード】
 ' ファイル名: import_master.xlsm 用のマクロコード
+' 作成者: システム管理部
+' 更新日: 2024-01-01
+' 
+' 【初心者向け修正ガイド】
+' 1. このファイル内の「設定部分」を現場に合わせて変更してください
+' 2. エラーが発生した場合は、まず設定値を確認してください
+' 3. 分からない場合は、システム管理者に連絡してください
 ' ====================================================================
 
 ' ====================================================================
-' 1. ヒアリングシート取り込み処理
+' 【グローバル設定変数】
+' ※現場の環境に合わせてここを修正してください
+' ====================================================================
+
+' --- ファイルパス設定 ---
+Const OUTPUT_FOLDER As String = "AutoDB_output"                  ' 出力フォルダ名
+Const MASTER_BEFORE_FILE As String = "terminal_master_before.xlsx"  ' 更新前ファイル名
+Const MASTER_AFTER_FILE As String = "terminal_master_after.xlsx"    ' 更新後ファイル名
+Const DIFF_RESULT_FILE As String = "terminal_diff.xlsx"             ' 差分結果ファイル名
+Const GENERATED_SQL_FILE As String = "generated_sql.sql"            ' 生成SQLファイル名
+
+' --- データ設定 ---
+Const COMPARE_COLUMN_COUNT As Integer = 6                       ' 比較するカラム数
+Const HEARING_SEPARATOR As String = "："                        ' ヒアリング区切り文字
+
+' --- 色設定（差分ハイライト用）---
+Const HIGHLIGHT_COLOR_R As Integer = 255                        ' 赤色成分
+Const HIGHLIGHT_COLOR_G As Integer = 255                        ' 緑色成分  
+Const HIGHLIGHT_COLOR_B As Integer = 0                          ' 青色成分（黄色）
+
+' --- デバッグ設定 ---
+Const DEBUG_MODE As Boolean = False                             ' デバッグモード
+
+' ====================================================================
+' 【1. ヒアリングシート取り込み処理】
+' 機能: ユーザー提供のテキストファイルをExcelに取り込む
+' 形式: 「項目名：値」の形式で記載されたファイルを読み込み
 ' ====================================================================
 Sub ImportHearingSheet()
+    ' エラーが発生した場合はErrorHandler に飛ぶ
     On Error GoTo ErrorHandler
     
-    Dim filePath As String
-    Dim fileContent As String
-    Dim lines As Variant
-    Dim i As Long
-    Dim colonPos As Integer
-    Dim itemName As String
-    Dim itemValue As String
+    ' --- 変数宣言 ---
+    Dim filePath As String          ' 選択されたファイルのパス
+    Dim fileContent As String       ' ファイルの内容全体
+    Dim lines As Variant           ' ファイルを行ごとに分割した配列
+    Dim i As Long                  ' ループ用カウンタ
+    Dim colonPos As Integer        ' 区切り文字「：」の位置
+    Dim itemName As String         ' 項目名（：の左側）
+    Dim itemValue As String        ' 値（：の右側）
+    Dim importCount As Integer     ' 取り込み件数カウンタ
     
-    ' ファイル選択ダイアログ
-    filePath = Application.GetOpenFilename("テキストファイル (*.txt),*.txt", , "ヒアリングシートを選択してください")
+    ' デバッグログ表示
+    If DEBUG_MODE Then
+        Debug.Print "ヒアリングシート取り込み開始: " & Now
+    End If
     
+    ' --- ステップ1: ファイル選択ダイアログを表示 ---
+    filePath = Application.GetOpenFilename( _
+        "テキストファイル (*.txt),*.txt", , _
+        "ヒアリングシートを選択してください")
+    
+    ' キャンセルボタンが押された場合は処理終了
     If filePath = "False" Then
+        If DEBUG_MODE Then Debug.Print "ユーザーによりキャンセルされました"
         Exit Sub
     End If
     
-    ' ファイル読み込み
+    ' ファイル存在確認
+    If Dir(filePath) = "" Then
+        MsgBox "指定されたファイルが見つかりません。" & vbCrLf & _
+               "ファイルパス: " & filePath, vbCritical, "ファイルエラー"
+        Exit Sub
+    End If
+    
+    ' --- ステップ2: ファイル読み込み ---
+    If DEBUG_MODE Then Debug.Print "ファイル読み込み開始: " & filePath
+    
+    ' ファイルを開いて内容を全て読み込む
     Open filePath For Input As #1
-    fileContent = Input$(LOF(1), 1)
+    fileContent = Input$(LOF(1), 1)  ' LOF(1)でファイルサイズを取得し、全て読み込み
     Close #1
     
-    ' 行ごとに分割
-    lines = Split(fileContent, vbCrLf)
+    ' 読み込み内容が空の場合はエラー
+    If Len(Trim(fileContent)) = 0 Then
+        MsgBox "ファイルの内容が空です。" & vbCrLf & _
+               "正しいヒアリングシートファイルを選択してください。", _
+               vbCritical, "ファイル内容エラー"
+        Exit Sub
+    End If
+    
+    ' --- ステップ3: ヒアリング情報シートの準備 ---
+    ' シート存在確認（無ければ作成）
+    Call EnsureWorksheetExists("ヒアリング情報")
     
     ' ヒアリング情報シートをクリア
     Worksheets("ヒアリング情報").Range("A:B").Clear
+    
+    ' ヘッダー行を設定
     Worksheets("ヒアリング情報").Range("A1").Value = "項目名"
     Worksheets("ヒアリング情報").Range("B1").Value = "値"
     
-    ' データ取り込み
+    ' ヘッダー行を太字にして見やすくする
+    Worksheets("ヒアリング情報").Range("A1:B1").Font.Bold = True
+    
+    ' --- ステップ4: データ取り込みメイン処理 ---
+    ' 改行コードで行ごとに分割
+    lines = Split(fileContent, vbCrLf)
+    importCount = 0  ' 取り込み件数をカウント
+    
+    ' 各行を処理
     For i = 0 To UBound(lines)
-        If InStr(lines(i), "：") > 0 Then
-            colonPos = InStr(lines(i), "：")
-            itemName = Trim(Left(lines(i), colonPos - 1))
-            itemValue = Trim(Mid(lines(i), colonPos + 1))
-            
-            Worksheets("ヒアリング情報").Range("A" & (i + 2)).Value = itemName
-            Worksheets("ヒアリング情報").Range("B" & (i + 2)).Value = itemValue
+        ' 空行をスキップ
+        If Len(Trim(lines(i))) > 0 Then
+            ' 区切り文字「：」が含まれているかチェック
+            If InStr(lines(i), HEARING_SEPARATOR) > 0 Then
+                ' 区切り文字の位置を取得
+                colonPos = InStr(lines(i), HEARING_SEPARATOR)
+                
+                ' 項目名と値に分割
+                itemName = Trim(Left(lines(i), colonPos - 1))      ' 左側（項目名）
+                itemValue = Trim(Mid(lines(i), colonPos + 1))      ' 右側（値）
+                
+                ' 項目名が空でない場合のみ取り込み
+                If Len(itemName) > 0 Then
+                    ' Excelシートに書き込み（i+2は、1行目がヘッダーなので+1、さらに配列が0から始まるので+1）
+                    Worksheets("ヒアリング情報").Range("A" & (importCount + 2)).Value = itemName
+                    Worksheets("ヒアリング情報").Range("B" & (importCount + 2)).Value = itemValue
+                    
+                    importCount = importCount + 1  ' 取り込み件数を加算
+                    
+                    If DEBUG_MODE Then
+                        Debug.Print "取り込み: " & itemName & " = " & itemValue
+                    End If
+                End If
+            Else
+                ' 区切り文字がない行はスキップ（デバッグ情報として出力）
+                If DEBUG_MODE Then
+                    Debug.Print "スキップ（区切り文字なし）: " & lines(i)
+                End If
+            End If
         End If
     Next i
     
-    MsgBox "ヒアリングシートの取り込みが完了しました。", vbInformation
-    Exit Sub
+    ' --- ステップ5: 結果表示 ---
+    ' 列幅を自動調整
+    Worksheets("ヒアリング情報").Columns("A:B").AutoFit
     
+    ' 完了メッセージ
+    MsgBox "ヒアリングシートの取り込みが完了しました。" & vbCrLf & _
+           "取り込み件数: " & importCount & "件" & vbCrLf & _
+           "ファイル: " & filePath, vbInformation, "取り込み完了"
+    
+    If DEBUG_MODE Then
+        Debug.Print "ヒアリングシート取り込み完了: " & Now & " (" & importCount & "件)"
+    End If
+    
+    Exit Sub
+        
 ErrorHandler:
-    MsgBox "エラーが発生しました: " & Err.Description, vbCritical
+    ' エラー発生時の処理
+    MsgBox "ヒアリングシート取り込み中にエラーが発生しました。" & vbCrLf & vbCrLf & _
+           "エラー内容: " & Err.Description & vbCrLf & _
+           "エラー番号: " & Err.Number & vbCrLf & vbCrLf & _
+           "システム管理者に連絡してください。", _
+           vbCritical, "エラー発生"
+    
+    If DEBUG_MODE Then
+        Debug.Print "エラー発生: " & Err.Description & " (番号: " & Err.Number & ")"
+    End If
 End Sub
 
 ' ====================================================================
@@ -257,23 +374,97 @@ ErrorHandler:
 End Sub
 
 ' ====================================================================
-' 5. ヘルパー関数
+' 【5. ヘルパー関数】
+' 共通で使用される便利な関数群
 ' ====================================================================
-Function GetHearingValue(ws As Worksheet, itemName As String) As String
-    Dim lastRow As Long
-    Dim i As Long
+
+' --- ワークシート存在確認・作成関数 ---
+' 指定した名前のシートが存在しない場合は作成する
+Sub EnsureWorksheetExists(sheetName As String)
+    On Error Resume Next
+    Dim ws As Worksheet
+    Set ws = Worksheets(sheetName)
     
+    ' シートが存在しない場合は作成
+    If ws Is Nothing Then
+        Set ws = Worksheets.Add
+        ws.Name = sheetName
+        
+        If DEBUG_MODE Then
+            Debug.Print "ワークシート作成: " & sheetName
+        End If
+    End If
+    
+    On Error GoTo 0
+End Sub
+
+' --- ヒアリング情報取得関数 ---
+' ヒアリング情報シートから指定した項目名の値を取得する
+' 引数: ws - ワークシート, itemName - 項目名
+' 戻り値: 該当する値（見つからない場合は空文字）
+Function GetHearingValue(ws As Worksheet, itemName As String) As String
+    Dim lastRow As Long        ' 最終行番号
+    Dim i As Long             ' ループ用カウンタ
+    
+    If DEBUG_MODE Then
+        Debug.Print "ヒアリング情報検索: " & itemName
+    End If
+    
+    ' 最終行を取得（A列基準）
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     
+    ' 2行目から最終行まで検索（1行目はヘッダー）
     For i = 2 To lastRow
+        ' A列の項目名が一致するかチェック
         If ws.Cells(i, 1).Value = itemName Then
+            ' 一致した場合、B列の値を返す
             GetHearingValue = ws.Cells(i, 2).Value
+            
+            If DEBUG_MODE Then
+                Debug.Print "見つかりました: " & itemName & " = " & GetHearingValue
+            End If
+            
             Exit Function
         End If
     Next i
     
+    ' 見つからない場合は空文字を返す
     GetHearingValue = ""
+    
+    If DEBUG_MODE Then
+        Debug.Print "見つかりませんでした: " & itemName
+    End If
 End Function
+
+' --- ファイルパス作成関数 ---
+' 現在のワークブックのパスに相対パスを結合する
+Function BuildFilePath(relativePath As String) As String
+    BuildFilePath = ThisWorkbook.Path & "\" & relativePath
+End Function
+
+' --- 安全なファイル削除関数 ---
+' ファイルが存在する場合のみ削除する
+Sub SafeDeleteFile(filePath As String)
+    On Error Resume Next
+    
+    If Dir(filePath) <> "" Then
+        Kill filePath
+        
+        If DEBUG_MODE Then
+            Debug.Print "ファイル削除: " & filePath
+        End If
+    End If
+    
+    On Error GoTo 0
+End Sub
+
+' --- デバッグ情報表示関数 ---
+' デバッグモード時のみメッセージを表示
+Sub DebugLog(message As String)
+    If DEBUG_MODE Then
+        Debug.Print "[" & Format(Now, "yyyy/mm/dd hh:mm:ss") & "] " & message
+    End If
+End Sub
 
 ' ====================================================================
 ' 6. 初期化処理（Excelブック作成時に実行）
