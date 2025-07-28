@@ -13,29 +13,46 @@ echo 開始時刻: [%date% %time%]
 echo ========================================
 
 rem ====================================================================
-rem 【設定部分】現場の環境に合わせて以下を修正してください
+rem ★★★ ここを現場の環境に合わせて修正してください ★★★
+rem 初心者の方でも安全に変更できるよう、修正箇所を <<<>>> で囲んでいます
 rem ====================================================================
 
-rem --- データベース接続設定 ---
-rem ※重要※ 実際の環境に合わせて以下の値を設定してください
-rem 設定例：
-rem   DB_USER=terminal_user
-rem   DB_PASS=password123
-rem   DB_CONNECT=prodserver:1521/ORCL
+rem ┌─────────────────────────────────────┐
+rem │ 🔐 データベース接続設定【必須修正】          │
+rem └─────────────────────────────────────┘
+rem ※重要※ システム管理者から提供された情報に置き換えてください
 
-set DB_USER=your_username
-set DB_PASS=your_password
-set DB_CONNECT=your_server:1521/your_service
+set DB_USER=<<<your_username>>>
+rem ↑ データベースのユーザー名を入力
+rem   例: set DB_USER=terminal_user
 
-rem --- Oracle環境設定 ---
-rem Oracle クライアントがインストールされているパスを指定
-rem 通常は以下のようなパスになります（環境に応じて変更）
-rem set ORACLE_HOME=C:\app\oracle\product\11.2.0\client_1
-rem set PATH=%ORACLE_HOME%\bin;%PATH%
+set DB_PASS=<<<your_password>>>
+rem ↑ データベースのパスワードを入力  
+rem   例: set DB_PASS=mypassword123
 
-rem --- 出力フォルダ設定 ---
-rem CSVファイルの出力先フォルダ名（変更可能）
+set DB_CONNECT=<<<your_server:1521/your_service>>>
+rem ↑ データベースの接続文字列を入力
+rem   例: set DB_CONNECT=dbserver01:1521/ORCL
+rem   形式: サーバー名:ポート番号/サービス名
+
+rem ┌─────────────────────────────────────┐
+rem │ 📁 出力フォルダ設定（通常は変更不要）        │  
+rem └─────────────────────────────────────┘
 set OUTPUT_FOLDER=AutoDB_output
+rem ↑ CSVファイルの出力先フォルダ名
+rem   変更する場合: AutoDB_output → <<<新しいフォルダ名>>>
+
+rem ┌─────────────────────────────────────┐
+rem │ ⚙️ Oracle環境設定（必要な場合のみ）         │
+rem └─────────────────────────────────────┘
+rem Oracle クライアントが標準的な場所にない場合は以下を有効化
+rem （行頭の「rem」を削除すると有効になります）
+
+rem set ORACLE_HOME=<<<C:\app\oracle\product\11.2.0\client_1>>>
+rem ↑ Oracle クライアントのインストールパス
+rem   システム管理者に確認してください
+
+rem set PATH=%ORACLE_HOME%\bin;%PATH%
 
 rem ====================================================================
 rem 【前処理】出力フォルダの準備

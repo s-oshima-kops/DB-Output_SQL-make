@@ -11,28 +11,73 @@
 ' ====================================================================
 
 ' ====================================================================
-' 【グローバル設定変数】
-' ※現場の環境に合わせてここを修正してください
+' 【★★★ ここを現場に合わせて修正してください ★★★】
+' VBA初心者の方でも安全に変更できるよう、修正箇所を明確に示しています
 ' ====================================================================
 
-' --- ファイルパス設定 ---
-Const OUTPUT_FOLDER As String = "AutoDB_output"                  ' 出力フォルダ名
-Const MASTER_BEFORE_FILE As String = "terminal_master_before.xlsx"  ' 更新前ファイル名
-Const MASTER_AFTER_FILE As String = "terminal_master_after.xlsx"    ' 更新後ファイル名
-Const DIFF_RESULT_FILE As String = "terminal_diff.xlsx"             ' 差分結果ファイル名
-Const GENERATED_SQL_FILE As String = "generated_sql.sql"            ' 生成SQLファイル名
+' ┌─────────────────────────────────────┐
+' │ 📁 ファイルパス設定（通常は変更不要）        │
+' └─────────────────────────────────────┘
+Const OUTPUT_FOLDER As String = "AutoDB_output"
+' ↑ CSVファイルが保存されるフォルダ名
+' 　 変更する場合: "AutoDB_output" → "<<<新しいフォルダ名>>>"
 
-' --- データ設定 ---
-Const COMPARE_COLUMN_COUNT As Integer = 6                       ' 比較するカラム数
-Const HEARING_SEPARATOR As String = "："                        ' ヒアリング区切り文字
+Const MASTER_BEFORE_FILE As String = "terminal_master_before.xlsx"
+' ↑ 更新前のマスタファイル名
+' 　 変更する場合: "terminal_master_before.xlsx" → "<<<新しいファイル名.xlsx>>>"
 
-' --- 色設定（差分ハイライト用）---
-Const HIGHLIGHT_COLOR_R As Integer = 255                        ' 赤色成分
-Const HIGHLIGHT_COLOR_G As Integer = 255                        ' 緑色成分  
-Const HIGHLIGHT_COLOR_B As Integer = 0                          ' 青色成分（黄色）
+Const MASTER_AFTER_FILE As String = "terminal_master_after.xlsx"
+' ↑ 更新後のマスタファイル名
+' 　 変更する場合: "terminal_master_after.xlsx" → "<<<新しいファイル名.xlsx>>>"
 
-' --- デバッグ設定 ---
-Const DEBUG_MODE As Boolean = False                             ' デバッグモード
+Const DIFF_RESULT_FILE As String = "terminal_diff.xlsx"
+' ↑ 差分比較結果ファイル名
+' 　 変更する場合: "terminal_diff.xlsx" → "<<<新しいファイル名.xlsx>>>"
+
+Const GENERATED_SQL_FILE As String = "generated_sql.sql"
+' ↑ 自動生成されるSQLファイル名
+' 　 変更する場合: "generated_sql.sql" → "<<<新しいファイル名.sql>>>"
+
+' ┌─────────────────────────────────────┐
+' │ 🔢 データ設定（現場のテーブル構造に合わせて変更） │
+' └─────────────────────────────────────┘
+Const COMPARE_COLUMN_COUNT As Integer = 6
+' ↑ 【重要】差分比較で比較するカラム数
+' 　 現場のテーブルのカラム数に合わせて変更してください
+' 　 例: 端末ID, 端末名, アプリコード, エリア, チーム名, 更新日時 = 6個
+' 　 変更する場合: 6 → <<<実際のカラム数>>>
+' 　 ※export_terminal.sql のSELECT文のカラム数と一致させる必要があります
+
+Const HEARING_SEPARATOR As String = "："
+' ↑ ヒアリングシートの区切り文字
+' 　 「項目名：値」の「：」部分
+' 　 変更する場合: "：" → "<<<新しい区切り文字>>>"
+' 　 例: 半角コロンの場合 "："→ ":"
+
+' ┌─────────────────────────────────────┐
+' │ 🎨 表示色設定（差分比較結果の見た目）         │
+' └─────────────────────────────────────┘
+Const HIGHLIGHT_COLOR_R As Integer = 255
+' ↑ ハイライト色の赤成分 (0-255)
+
+Const HIGHLIGHT_COLOR_G As Integer = 255
+' ↑ ハイライト色の緑成分 (0-255)  
+
+Const HIGHLIGHT_COLOR_B As Integer = 0
+' ↑ ハイライト色の青成分 (0-255)
+' 　 現在の設定: 赤255 + 緑255 + 青0 = 黄色
+' 　 色の変更例:
+' 　   赤色: R=255, G=0, B=0
+' 　   青色: R=0, G=0, B=255
+' 　   緑色: R=0, G=255, B=0
+
+' ┌─────────────────────────────────────┐
+' │ 🐛 デバッグ設定（トラブル時に使用）           │
+' └─────────────────────────────────────┘
+Const DEBUG_MODE As Boolean = False
+' ↑ デバッグ情報の表示ON/OFF
+' 　 エラーが発生して詳細を確認したい場合: False → True
+' 　 通常運用時: True → False
 
 ' ====================================================================
 ' 【1. ヒアリングシート取り込み処理】
